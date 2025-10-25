@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Minimalist 2D Sandbox Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #87ceeb;
+      overflow: hidden;
+      height: 100%;
+      font-family: sans-serif;
+    }
+    #game {
+      display: block;
+      margin: 0 auto;
+      background: #87ceeb;
+      box-shadow: 0 0 32px #222;
+    }
+    #inventory {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 16px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px 20px;
+      border-radius: 16px;
+      display: flex;
+      gap: 16px;
+      box-shadow: 0 2px 8px #888;
+      font-size: 16px;
+      z-index: 2;
+    }
+    .inv-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 40px;
+      justify-content: center;
+    }
+    .block-icon {
+      width: 24px;
+      height: 24px;
+      display: inline-block;
+      border-radius: 4px;
+      border: 2px solid #222;
+    }
+    .block-dirt { background: #b97a57; }
+    .block-stone { background: #aaa; }
+    .block-wood { background: #8b5c2a; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="960" height="540"></canvas>
+  <div id="inventory"></div>
+  <audio id="breakSound" src="https://cdn.jsdelivr.net/gh/ken-cdn/sfx/sfx-pop.ogg"></audio>
+  <audio id="placeSound" src="https://cdn.jsdelivr.net/gh/ken-cdn/sfx/sfx-blip.ogg"></audio>
+  <audio id="jumpSound" src="https://cdn.jsdelivr.net/gh/ken-cdn/sfx/sfx-jump.ogg"></audio>
+  <audio id="walkSound" src="https://cdn.jsdelivr.net/gh/ken-cdn/sfx/sfx-step.ogg"></audio>
+  <script src="main.js"></script>
+</body>
+</html>
