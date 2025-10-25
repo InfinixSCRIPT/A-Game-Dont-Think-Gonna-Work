@@ -2,7 +2,7 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
-const BLOCK_SIZE = 32, WORLD_W = 40, WORLD_H = 18;
+const BLOCK_SIZE = 32, WORLD_W = 80, WORLD_H = 36; // Larger world
 const GRAVITY = 0.5, JUMP_VEL = -10, MOVE_SPEED = 4, MAX_FALL = 12;
 const INVENTORY_TYPES = ["dirt", "stone", "wood"];
 const BLOCK_COLORS = { dirt: "#b97a57", stone: "#aaa", wood: "#8b5c2a" };
@@ -11,6 +11,7 @@ const skyColors = ["#87ceeb", "#232d4b"]; // day-night
 let keys = {}, mouse = { x: 0, y: 0, down: false, right: false };
 let world = [];
 let inventory = { dirt: 0, stone: 0, wood: 0 };
+let selectedType = INVENTORY_TYPES[0]; // Default selected type
 let timeOfDay = 0; // 0..1
 let stickman = {
   x: WORLD_W/2, y: WORLD_H/2, vx: 0, vy: 0,
@@ -78,10 +79,13 @@ function drawStickman() {
 // Draw UI
 function drawInventory() {
   let invDiv = document.getElementById("inventory");
-  invDiv.innerHTML = INVENTORY_TYPES.map(type =>
-    `<span class="inv-item">
+  invDiv.innerHTML = INVENTORY_TYPES.map((type, i) =>
+    `<span class="inv-item" style="${
+      selectedType === type ? 'outline:2px solid #0057ff; background:#e0f0ff;' : ''
+    }">
       <span class="block-icon block-${type}"></span>
       <span>${inventory[type]}</span>
+      <span style="font-size:12px; color:#888;">[${i+1}]</span>
     </span>`
   ).join('');
 }
@@ -150,13 +154,10 @@ function blockAction(breaking) {
         });
       }
     } else {
-      for (let type of INVENTORY_TYPES) {
-        if (inventory[type]>0 && !world[my][mx]) {
-          world[my][mx] = type;
-          inventory[type]--;
-          playSound("placeSound");
-          break;
-        }
+      if (inventory[selectedType]>0 && !world[my][mx]) {
+        world[my][mx] = selectedType;
+        inventory[selectedType]--;
+        playSound("placeSound");
       }
     }
   }
@@ -213,7 +214,14 @@ canvas.addEventListener("mouseup", e=>{
   if (e.button === 2) mouse.right = false;
 });
 canvas.addEventListener("contextmenu", e=>e.preventDefault());
-window.addEventListener("keydown", e=>{ keys[e.key] = true; });
+window.addEventListener("keydown", e=>{
+  keys[e.key] = true;
+  // Block selection
+  if (e.key === "1") selectedType = INVENTORY_TYPES[0];
+  if (e.key === "2") selectedType = INVENTORY_TYPES[1];
+  if (e.key === "3") selectedType = INVENTORY_TYPES[2];
+  drawInventory();
+});
 window.addEventListener("keyup", e=>{ keys[e.key] = false; });
 
 // Save/Load
