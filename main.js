@@ -2,15 +2,15 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
-const BLOCK_SIZE = 32, WORLD_W = 80, WORLD_H = 36; // Larger world
+const BLOCK_SIZE = 32, WORLD_W = 120, WORLD_H = 45; // Much bigger world!
 const GRAVITY = 0.5, JUMP_VEL = -10, MOVE_SPEED = 4, MAX_FALL = 12;
-const INVENTORY_TYPES = ["dirt", "stone", "wood"];
-const BLOCK_COLORS = { dirt: "#b97a57", stone: "#aaa", wood: "#8b5c2a" };
+const INVENTORY_TYPES = ["dirt", "stone", "wood", "leaf"];
+const BLOCK_COLORS = { dirt: "#b97a57", stone: "#aaa", wood: "#8b5c2a", leaf: "#3fc25b" };
 const skyColors = ["#87ceeb", "#232d4b"]; // day-night
 
 let keys = {}, mouse = { x: 0, y: 0, down: false, right: false };
 let world = [];
-let inventory = { dirt: 0, stone: 0, wood: 0 };
+let inventory = { dirt: 0, stone: 0, wood: 0, leaf: 0 };
 let selectedType = INVENTORY_TYPES[0]; // Default selected type
 let timeOfDay = 0; // 0..1
 let stickman = {
@@ -25,7 +25,7 @@ function playSound(id) {
   s.currentTime = 0; s.play();
 }
 
-// World Generation
+// World Generation (with trees)
 function genWorld() {
   world = [];
   for (let y=0; y<WORLD_H; ++y) {
@@ -33,11 +33,37 @@ function genWorld() {
     for (let x=0; x<WORLD_W; ++x) {
       if (y > WORLD_H-4) row.push("dirt");
       else if (y === WORLD_H-4) row.push("grass");
-      else if (y > WORLD_H-6) row.push("stone");
-      else if (y > WORLD_H-8 && Math.random()<0.1) row.push("wood");
+      else if (y > WORLD_H-8 && Math.random()<0.02) row.push("stone");
       else row.push(null);
     }
     world.push(row);
+  }
+  // Add trees
+  for (let x=3; x<WORLD_W-3; x++) {
+    if (Math.random() < 0.08) {
+      addTree(x, WORLD_H-5-Math.floor(Math.random()*2));
+    }
+  }
+}
+
+// Add a tree at (x, y) with random height and leafy top
+function addTree(x, y) {
+  let trunkHeight = 4 + Math.floor(Math.random()*3); // 4-6 blocks tall
+  // Trunk
+  for (let h=0; h<trunkHeight; h++) {
+    if (y-h>=0 && y-h<WORLD_H) world[y-h][x] = "wood";
+  }
+  // Leaves (2-3 layers)
+  let leafStart = y-trunkHeight;
+  for (let dy=-2; dy<=0; dy++) {
+    for (let dx=-2; dx<=2; dx++) {
+      let lx = x+dx, ly = leafStart+dy;
+      if (lx>=0 && lx<WORLD_W && ly>=0 && ly<WORLD_H) {
+        if (Math.abs(dx)+Math.abs(dy)<4) { // softer edges
+          world[ly][lx] = "leaf";
+        }
+      }
+    }
   }
 }
 
@@ -83,7 +109,7 @@ function drawInventory() {
     `<span class="inv-item" style="${
       selectedType === type ? 'outline:2px solid #0057ff; background:#e0f0ff;' : ''
     }">
-      <span class="block-icon block-${type}"></span>
+      <span class="block-icon block-${type}" style="background:${BLOCK_COLORS[type]}"></span>
       <span>${inventory[type]}</span>
       <span style="font-size:12px; color:#888;">[${i+1}]</span>
     </span>`
@@ -220,6 +246,7 @@ window.addEventListener("keydown", e=>{
   if (e.key === "1") selectedType = INVENTORY_TYPES[0];
   if (e.key === "2") selectedType = INVENTORY_TYPES[1];
   if (e.key === "3") selectedType = INVENTORY_TYPES[2];
+  if (e.key === "4") selectedType = INVENTORY_TYPES[3];
   drawInventory();
 });
 window.addEventListener("keyup", e=>{ keys[e.key] = false; });
