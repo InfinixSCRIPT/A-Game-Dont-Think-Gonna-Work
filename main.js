@@ -1,13 +1,18 @@
-// Minimalist 2D Sandbox Game (fixed world depth, ground, block placing/breaking)
+// Minimalist 2D Sandbox Game (large world, bedrock layer)
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 const BLOCK_SIZE = 32;
-const WORLD_W = 120; // Wide world
-const WORLD_H = 100; // Much deeper world!
-const GRAVITY = 0.5, JUMP_VEL = -10, MOVE_SPEED = 4, MAX_FALL = 12;
+const WORLD_W = 250; // Wide world
+const WORLD_H = 400; // Very deep world!
 const INVENTORY_TYPES = ["dirt", "stone", "wood", "leaf"];
-const BLOCK_COLORS = { dirt: "#b97a57", stone: "#aaa", wood: "#8b5c2a", leaf: "#3fc25b" };
+const BLOCK_COLORS = {
+  dirt: "#b97a57",
+  stone: "#aaa",
+  wood: "#8b5c2a",
+  leaf: "#3fc25b",
+  bedrock: "#222"
+};
 const skyColors = ["#87ceeb", "#232d4b"];
 
 let keys = {}, mouse = { x: 0, y: 0, down: false, right: false };
@@ -27,16 +32,17 @@ function playSound(id) {
   s.currentTime = 0; s.play();
 }
 
-// World Generation (continuous ground, no floating blocks except tree leaves/wood)
+// World Generation (continuous ground, no floating blocks except tree leaves/wood, bedrock)
 function genWorld() {
   world = [];
   for (let y=0; y<WORLD_H; ++y) {
     let row = [];
     for (let x=0; x<WORLD_W; ++x) {
-      if (y > WORLD_H-6) row.push("dirt"); // Deep solid ground
-      else if (y === WORLD_H-6) row.push("dirt"); // Surface is always solid
-      else if (y === WORLD_H-7) row.push("stone"); // Stone layer just below top ground
-      else if (y > WORLD_H-20) row.push(Math.random()<0.04 ? "stone" : null); // Some stone lower down
+      if (y === WORLD_H-1) row.push("bedrock"); // Unbreakable bedrock at bottom
+      else if (y > WORLD_H-7) row.push("dirt"); // Deep solid ground
+      else if (y === WORLD_H-7) row.push("dirt"); // Surface is always solid
+      else if (y === WORLD_H-8) row.push("stone"); // Stone layer just below top ground
+      else if (y > WORLD_H-30) row.push(Math.random()<0.04 ? "stone" : null); // Some stone lower down
       else row.push(null);
     }
     world.push(row);
@@ -44,7 +50,7 @@ function genWorld() {
   // Add trees (only on solid ground)
   for (let x=3; x<WORLD_W-3; x++) {
     if (Math.random() < 0.07) {
-      let y = WORLD_H-7;
+      let y = WORLD_H-8;
       addTree(x, y);
     }
   }
@@ -55,13 +61,13 @@ function addTree(x, y) {
   let trunkHeight = 4 + Math.floor(Math.random()*3);
   for (let h=0; h<trunkHeight; h++) {
     let ty = y-h;
-    if (ty>=0 && ty<WORLD_H) world[ty][x] = "wood";
+    if (ty>=0 && ty<WORLD_H && world[ty][x] !== "bedrock") world[ty][x] = "wood";
   }
   let leafStart = y-trunkHeight;
   for (let dy=-2; dy<=0; dy++) {
     for (let dx=-2; dx<=2; dx++) {
       let lx = x+dx, ly = leafStart+dy;
-      if (lx>=0 && lx<WORLD_W && ly>=0 && ly<WORLD_H) {
+      if (lx>=0 && lx<WORLD_W && ly>=0 && ly<WORLD_H && world[ly][lx] !== "bedrock") {
         if (Math.abs(dx)+Math.abs(dy)<4) {
           world[ly][lx] = "leaf";
         }
@@ -129,8 +135,8 @@ function updateStickman() {
   stickman.vx = 0;
   if (keys["ArrowLeft"] || keys["a"]) { stickman.vx -= MOVE_SPEED; stickman.face = -1; }
   if (keys["ArrowRight"] || keys["d"]) { stickman.vx += MOVE_SPEED; stickman.face = 1; }
-  stickman.vy += GRAVITY;
-  stickman.vy = Math.min(stickman.vy, MAX_FALL);
+  stickman.vy += 0.5;
+  stickman.vy = Math.min(stickman.vy, 12);
 
   // Horizontal collision
   let nx = stickman.x + stickman.vx/BLOCK_SIZE;
@@ -167,6 +173,7 @@ function blockAction(breaking) {
   if (mx>=0 && my>=0 && mx<WORLD_W && my<WORLD_H) {
     if (breaking) {
       let type = world[my][mx];
+      if (type === "bedrock") return; // Unbreakable!
       if (type && INVENTORY_TYPES.includes(type)) {
         world[my][mx] = null;
         inventory[type]++;
@@ -178,7 +185,8 @@ function blockAction(breaking) {
         });
       }
     } else {
-      if (inventory[selectedType]>0 && !world[my][mx]) {
+      // Don't allow placing on bedrock
+      if (world[my][mx] !== "bedrock" && inventory[selectedType]>0 && !world[my][mx]) {
         world[my][mx] = selectedType;
         inventory[selectedType]--;
         playSound("placeSound");
