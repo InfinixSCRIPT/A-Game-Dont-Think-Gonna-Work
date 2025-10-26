@@ -1,20 +1,22 @@
-// Minimalist 2D Sandbox Game
+// Minimalist 2D Sandbox Game (fixed world depth, ground, block placing/breaking)
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
-const BLOCK_SIZE = 32, WORLD_W = 120, WORLD_H = 80; // World is much deeper!
+const BLOCK_SIZE = 32;
+const WORLD_W = 120; // Wide world
+const WORLD_H = 100; // Much deeper world!
 const GRAVITY = 0.5, JUMP_VEL = -10, MOVE_SPEED = 4, MAX_FALL = 12;
 const INVENTORY_TYPES = ["dirt", "stone", "wood", "leaf"];
 const BLOCK_COLORS = { dirt: "#b97a57", stone: "#aaa", wood: "#8b5c2a", leaf: "#3fc25b" };
-const skyColors = ["#87ceeb", "#232d4b"]; // day-night
+const skyColors = ["#87ceeb", "#232d4b"];
 
 let keys = {}, mouse = { x: 0, y: 0, down: false, right: false };
 let world = [];
 let inventory = { dirt: 0, stone: 0, wood: 0, leaf: 0 };
-let selectedType = INVENTORY_TYPES[0]; // Default selected type
-let timeOfDay = 0; // 0..1
+let selectedType = INVENTORY_TYPES[0];
+let timeOfDay = 0;
 let stickman = {
-  x: WORLD_W/2, y: WORLD_H-8.5, vx: 0, vy: 0,
+  x: Math.floor(WORLD_W/2), y: WORLD_H-6.5, vx: 0, vy: 0,
   w: 18/BLOCK_SIZE, h: 40/BLOCK_SIZE, grounded: false, face: 1
 };
 let cam = { x: stickman.x, y: stickman.y };
@@ -25,16 +27,16 @@ function playSound(id) {
   s.currentTime = 0; s.play();
 }
 
-// World Generation (no floating blocks, continuous ground, better trees)
+// World Generation (continuous ground, no floating blocks except tree leaves/wood)
 function genWorld() {
   world = [];
   for (let y=0; y<WORLD_H; ++y) {
     let row = [];
     for (let x=0; x<WORLD_W; ++x) {
-      if (y > WORLD_H-5) row.push("dirt"); // Deep solid ground
-      else if (y === WORLD_H-5) row.push("dirt"); // Top ground is always solid
-      else if (y === WORLD_H-6) row.push("stone"); // Stone layer just below top ground
-      else if (y > WORLD_H-15) row.push(Math.random()<0.05 ? "stone" : null); // Some stone lower down
+      if (y > WORLD_H-6) row.push("dirt"); // Deep solid ground
+      else if (y === WORLD_H-6) row.push("dirt"); // Surface is always solid
+      else if (y === WORLD_H-7) row.push("stone"); // Stone layer just below top ground
+      else if (y > WORLD_H-20) row.push(Math.random()<0.04 ? "stone" : null); // Some stone lower down
       else row.push(null);
     }
     world.push(row);
@@ -42,8 +44,7 @@ function genWorld() {
   // Add trees (only on solid ground)
   for (let x=3; x<WORLD_W-3; x++) {
     if (Math.random() < 0.07) {
-      // Find the ground level at this x
-      let y = WORLD_H-6;
+      let y = WORLD_H-7;
       addTree(x, y);
     }
   }
@@ -51,19 +52,17 @@ function genWorld() {
 
 // Add a tree at (x, y) with trunk and leafy top
 function addTree(x, y) {
-  let trunkHeight = 4 + Math.floor(Math.random()*3); // 4-6 blocks tall
-  // Trunk
+  let trunkHeight = 4 + Math.floor(Math.random()*3);
   for (let h=0; h<trunkHeight; h++) {
     let ty = y-h;
     if (ty>=0 && ty<WORLD_H) world[ty][x] = "wood";
   }
-  // Leaves (2-3 layers)
   let leafStart = y-trunkHeight;
   for (let dy=-2; dy<=0; dy++) {
     for (let dx=-2; dx<=2; dx++) {
       let lx = x+dx, ly = leafStart+dy;
       if (lx>=0 && lx<WORLD_W && ly>=0 && ly<WORLD_H) {
-        if (Math.abs(dx)+Math.abs(dy)<4) { // softer edges
+        if (Math.abs(dx)+Math.abs(dy)<4) {
           world[ly][lx] = "leaf";
         }
       }
@@ -92,7 +91,6 @@ function drawWorld() {
 function drawStickman() {
   let px = (stickman.x-cam.x)*BLOCK_SIZE+W/2;
   let py = (stickman.y-cam.y)*BLOCK_SIZE+H/2;
-  // Body
   ctx.strokeStyle = "#222";
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -152,7 +150,6 @@ function updateStickman() {
     playSound("jumpSound");
     stickman.grounded = false;
   }
-  // Play walking sound
   if (stickman.vx != 0 && stickman.grounded) playSound("walkSound");
 }
 
@@ -165,7 +162,6 @@ function collides(x, y) {
 
 // Block Breaking/Placing
 function blockAction(breaking) {
-  // Get grid block at mouse position
   let mx = Math.floor(cam.x + (mouse.x-W/2)/BLOCK_SIZE);
   let my = Math.floor(cam.y + (mouse.y-H/2)/BLOCK_SIZE);
   if (mx>=0 && my>=0 && mx<WORLD_W && my<WORLD_H) {
@@ -175,7 +171,6 @@ function blockAction(breaking) {
         world[my][mx] = null;
         inventory[type]++;
         playSound("breakSound");
-        // Particle effect
         for (let i=0; i<8; ++i) particles.push({
           x: mx, y: my,
           dx: (Math.random()-0.5)*2, dy: (Math.random()-0.5)*2,
@@ -223,7 +218,6 @@ function updateDayNight() {
   canvas.style.background = bg;
 }
 function lerpColor(a, b, t) {
-  // Simple hex color lerp
   let ah=[parseInt(a.substr(1,2),16),parseInt(a.substr(3,2),16),parseInt(a.substr(5,2),16)];
   let bh=[parseInt(b.substr(1,2),16),parseInt(b.substr(3,2),16),parseInt(b.substr(5,2),16)];
   let rh = ah.map((v,i)=>Math.round(v*(1-t)+bh[i]*t));
@@ -245,7 +239,6 @@ canvas.addEventListener("mouseup", e=>{
 canvas.addEventListener("contextmenu", e=>e.preventDefault());
 window.addEventListener("keydown", e=>{
   keys[e.key] = true;
-  // Block selection
   if (e.key === "1") selectedType = INVENTORY_TYPES[0];
   if (e.key === "2") selectedType = INVENTORY_TYPES[1];
   if (e.key === "3") selectedType = INVENTORY_TYPES[2];
