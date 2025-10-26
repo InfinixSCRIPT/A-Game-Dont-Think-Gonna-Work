@@ -2,7 +2,7 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
-const BLOCK_SIZE = 32, WORLD_W = 120, WORLD_H = 45; // Much bigger world!
+const BLOCK_SIZE = 32, WORLD_W = 120, WORLD_H = 80; // World is much deeper!
 const GRAVITY = 0.5, JUMP_VEL = -10, MOVE_SPEED = 4, MAX_FALL = 12;
 const INVENTORY_TYPES = ["dirt", "stone", "wood", "leaf"];
 const BLOCK_COLORS = { dirt: "#b97a57", stone: "#aaa", wood: "#8b5c2a", leaf: "#3fc25b" };
@@ -14,7 +14,7 @@ let inventory = { dirt: 0, stone: 0, wood: 0, leaf: 0 };
 let selectedType = INVENTORY_TYPES[0]; // Default selected type
 let timeOfDay = 0; // 0..1
 let stickman = {
-  x: WORLD_W/2, y: WORLD_H/2, vx: 0, vy: 0,
+  x: WORLD_W/2, y: WORLD_H-8.5, vx: 0, vy: 0,
   w: 18/BLOCK_SIZE, h: 40/BLOCK_SIZE, grounded: false, face: 1
 };
 let cam = { x: stickman.x, y: stickman.y };
@@ -25,33 +25,37 @@ function playSound(id) {
   s.currentTime = 0; s.play();
 }
 
-// World Generation (with trees)
+// World Generation (no floating blocks, continuous ground, better trees)
 function genWorld() {
   world = [];
   for (let y=0; y<WORLD_H; ++y) {
     let row = [];
     for (let x=0; x<WORLD_W; ++x) {
-      if (y > WORLD_H-4) row.push("dirt");
-      else if (y === WORLD_H-4) row.push("grass");
-      else if (y > WORLD_H-8 && Math.random()<0.02) row.push("stone");
+      if (y > WORLD_H-5) row.push("dirt"); // Deep solid ground
+      else if (y === WORLD_H-5) row.push("dirt"); // Top ground is always solid
+      else if (y === WORLD_H-6) row.push("stone"); // Stone layer just below top ground
+      else if (y > WORLD_H-15) row.push(Math.random()<0.05 ? "stone" : null); // Some stone lower down
       else row.push(null);
     }
     world.push(row);
   }
-  // Add trees
+  // Add trees (only on solid ground)
   for (let x=3; x<WORLD_W-3; x++) {
-    if (Math.random() < 0.08) {
-      addTree(x, WORLD_H-5-Math.floor(Math.random()*2));
+    if (Math.random() < 0.07) {
+      // Find the ground level at this x
+      let y = WORLD_H-6;
+      addTree(x, y);
     }
   }
 }
 
-// Add a tree at (x, y) with random height and leafy top
+// Add a tree at (x, y) with trunk and leafy top
 function addTree(x, y) {
   let trunkHeight = 4 + Math.floor(Math.random()*3); // 4-6 blocks tall
   // Trunk
   for (let h=0; h<trunkHeight; h++) {
-    if (y-h>=0 && y-h<WORLD_H) world[y-h][x] = "wood";
+    let ty = y-h;
+    if (ty>=0 && ty<WORLD_H) world[ty][x] = "wood";
   }
   // Leaves (2-3 layers)
   let leafStart = y-trunkHeight;
@@ -161,11 +165,10 @@ function collides(x, y) {
 
 // Block Breaking/Placing
 function blockAction(breaking) {
-  // Find grid block near player
-  let px = Math.floor(stickman.x), py = Math.floor(stickman.y);
+  // Get grid block at mouse position
   let mx = Math.floor(cam.x + (mouse.x-W/2)/BLOCK_SIZE);
   let my = Math.floor(cam.y + (mouse.y-H/2)/BLOCK_SIZE);
-  if (Math.abs(mx-stickman.x)<=2 && Math.abs(my-stickman.y)<=2 && mx>=0 && my>=0 && mx<WORLD_W && my<WORLD_H) {
+  if (mx>=0 && my>=0 && mx<WORLD_W && my<WORLD_H) {
     if (breaking) {
       let type = world[my][mx];
       if (type && INVENTORY_TYPES.includes(type)) {
