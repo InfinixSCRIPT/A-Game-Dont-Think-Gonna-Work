@@ -1,4 +1,4 @@
-// Minimalist 2D Sandbox Game (large world, bedrock layer)
+// Minimalist 2D Sandbox Game (large world, bedrock layer, fix for browser performance)
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
@@ -21,42 +21,40 @@ let inventory = { dirt: 0, stone: 0, wood: 0, leaf: 0 };
 let selectedType = INVENTORY_TYPES[0];
 let timeOfDay = 0;
 let stickman = {
-  x: Math.floor(WORLD_W/2), y: WORLD_H-6.5, vx: 0, vy: 0,
+  x: Math.floor(WORLD_W/2), y: WORLD_H-10.5, vx: 0, vy: 0,
   w: 18/BLOCK_SIZE, h: 40/BLOCK_SIZE, grounded: false, face: 1
 };
 let cam = { x: stickman.x, y: stickman.y };
 
-// Sounds
 function playSound(id) {
   let s = document.getElementById(id);
   s.currentTime = 0; s.play();
 }
 
-// World Generation (continuous ground, no floating blocks except tree leaves/wood, bedrock)
+// World Generation (bedrock at bottom)
 function genWorld() {
   world = [];
   for (let y=0; y<WORLD_H; ++y) {
     let row = [];
     for (let x=0; x<WORLD_W; ++x) {
-      if (y === WORLD_H-1) row.push("bedrock"); // Unbreakable bedrock at bottom
-      else if (y > WORLD_H-7) row.push("dirt"); // Deep solid ground
-      else if (y === WORLD_H-7) row.push("dirt"); // Surface is always solid
-      else if (y === WORLD_H-8) row.push("stone"); // Stone layer just below top ground
-      else if (y > WORLD_H-30) row.push(Math.random()<0.04 ? "stone" : null); // Some stone lower down
+      if (y === WORLD_H-1) row.push("bedrock"); // Bedrock layer at bottom
+      else if (y > WORLD_H-11) row.push("dirt"); // Deep solid ground
+      else if (y === WORLD_H-11) row.push("dirt"); // Surface is always solid
+      else if (y === WORLD_H-12) row.push("stone"); // Stone layer just below top ground
+      else if (y > WORLD_H-40) row.push(Math.random()<0.03 ? "stone" : null);
       else row.push(null);
     }
     world.push(row);
   }
-  // Add trees (only on solid ground)
+  // Trees only on solid ground
   for (let x=3; x<WORLD_W-3; x++) {
     if (Math.random() < 0.07) {
-      let y = WORLD_H-8;
+      let y = WORLD_H-12;
       addTree(x, y);
     }
   }
 }
 
-// Add a tree at (x, y) with trunk and leafy top
 function addTree(x, y) {
   let trunkHeight = 4 + Math.floor(Math.random()*3);
   for (let h=0; h<trunkHeight; h++) {
@@ -76,10 +74,14 @@ function addTree(x, y) {
   }
 }
 
-// Draw world
 function drawWorld() {
-  for (let y=0; y<WORLD_H; ++y) {
-    for (let x=0; x<WORLD_W; ++x) {
+  // Only draw blocks visible on canvas for performance!
+  let minX = Math.max(0, Math.floor(cam.x - W/(2*BLOCK_SIZE)) - 2);
+  let maxX = Math.min(WORLD_W, Math.ceil(cam.x + W/(2*BLOCK_SIZE)) + 2);
+  let minY = Math.max(0, Math.floor(cam.y - H/(2*BLOCK_SIZE)) - 2);
+  let maxY = Math.min(WORLD_H, Math.ceil(cam.y + H/(2*BLOCK_SIZE)) + 2);
+  for (let y=minY; y<maxY; ++y) {
+    for (let x=minX; x<maxX; ++x) {
       let type = world[y][x];
       if (type && BLOCK_COLORS[type]) {
         ctx.fillStyle = BLOCK_COLORS[type];
@@ -93,24 +95,22 @@ function drawWorld() {
   }
 }
 
-// Draw stickman (simple, animated)
 function drawStickman() {
   let px = (stickman.x-cam.x)*BLOCK_SIZE+W/2;
   let py = (stickman.y-cam.y)*BLOCK_SIZE+H/2;
   ctx.strokeStyle = "#222";
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(px, py-16, 8, 0, Math.PI*2); // head
-  ctx.moveTo(px, py-8); ctx.lineTo(px, py+18); // body
+  ctx.arc(px, py-16, 8, 0, Math.PI*2);
+  ctx.moveTo(px, py-8); ctx.lineTo(px, py+18);
   let legA = px-6, legB = px+6, legY = py+18, legY2 = py+32;
   ctx.moveTo(px, py+18); ctx.lineTo(legA, legY2);
   ctx.moveTo(px, py+18); ctx.lineTo(legB, legY2);
-  ctx.moveTo(px, py); ctx.lineTo(px-10*stickman.face, py+8); // left arm
-  ctx.moveTo(px, py); ctx.lineTo(px+10*stickman.face, py+8); // right arm
+  ctx.moveTo(px, py); ctx.lineTo(px-10*stickman.face, py+8);
+  ctx.moveTo(px, py); ctx.lineTo(px+10*stickman.face, py+8);
   ctx.stroke();
 }
 
-// Draw UI
 function drawInventory() {
   let invDiv = document.getElementById("inventory");
   invDiv.innerHTML = INVENTORY_TYPES.map((type, i) =>
@@ -124,25 +124,21 @@ function drawInventory() {
   ).join('');
 }
 
-// Camera
 function updateCamera() {
   cam.x += (stickman.x-cam.x)*0.08;
   cam.y += (stickman.y-cam.y)*0.08;
 }
 
-// Physics & Movement
 function updateStickman() {
   stickman.vx = 0;
-  if (keys["ArrowLeft"] || keys["a"]) { stickman.vx -= MOVE_SPEED; stickman.face = -1; }
-  if (keys["ArrowRight"] || keys["d"]) { stickman.vx += MOVE_SPEED; stickman.face = 1; }
+  if (keys["ArrowLeft"] || keys["a"]) { stickman.vx -= 4; stickman.face = -1; }
+  if (keys["ArrowRight"] || keys["d"]) { stickman.vx += 4; stickman.face = 1; }
   stickman.vy += 0.5;
   stickman.vy = Math.min(stickman.vy, 12);
 
-  // Horizontal collision
   let nx = stickman.x + stickman.vx/BLOCK_SIZE;
   if (!collides(nx, stickman.y)) stickman.x = nx;
 
-  // Vertical collision
   let ny = stickman.y + stickman.vy/BLOCK_SIZE;
   if (!collides(stickman.x, ny)) {
     stickman.y = ny;
@@ -152,28 +148,26 @@ function updateStickman() {
     stickman.vy = 0;
   }
   if ((keys[" "] || keys["w"] || keys["ArrowUp"]) && stickman.grounded) {
-    stickman.vy = JUMP_VEL;
+    stickman.vy = -10;
     playSound("jumpSound");
     stickman.grounded = false;
   }
   if (stickman.vx != 0 && stickman.grounded) playSound("walkSound");
 }
 
-// Collision detection
 function collides(x, y) {
   let gx = Math.floor(x), gy = Math.floor(y+stickman.h/2);
   if (gx < 0 || gy < 0 || gx >= WORLD_W || gy >= WORLD_H) return true;
   return !!world[gy][gx];
 }
 
-// Block Breaking/Placing
 function blockAction(breaking) {
   let mx = Math.floor(cam.x + (mouse.x-W/2)/BLOCK_SIZE);
   let my = Math.floor(cam.y + (mouse.y-H/2)/BLOCK_SIZE);
   if (mx>=0 && my>=0 && mx<WORLD_W && my<WORLD_H) {
     if (breaking) {
       let type = world[my][mx];
-      if (type === "bedrock") return; // Unbreakable!
+      if (type === "bedrock") return;
       if (type && INVENTORY_TYPES.includes(type)) {
         world[my][mx] = null;
         inventory[type]++;
@@ -185,7 +179,6 @@ function blockAction(breaking) {
         });
       }
     } else {
-      // Don't allow placing on bedrock
       if (world[my][mx] !== "bedrock" && inventory[selectedType]>0 && !world[my][mx]) {
         world[my][mx] = selectedType;
         inventory[selectedType]--;
@@ -195,7 +188,6 @@ function blockAction(breaking) {
   }
 }
 
-// Particle effects
 let particles = [];
 function updateParticles() {
   for (let p of particles) {
@@ -217,7 +209,6 @@ function drawParticles() {
   }
 }
 
-// Day/Night cycle
 function updateDayNight() {
   timeOfDay += 0.0002;
   if (timeOfDay > 1) timeOfDay = 0;
@@ -277,7 +268,6 @@ document.addEventListener("keydown", e => {
   }
 });
 
-// Main Loop
 function loop() {
   updateDayNight();
   updateCamera();
